@@ -171,6 +171,7 @@ Compile với `checkpointer` được **truyền vào** `build_graph()` — khô
 | P1.1 — Nhánh không loop | P1 | ✅ | classify/clarify/risky_action/approval done trên `CP1/Nam`, verify bằng câu tự nghĩ (không phải scenario mẫu), priority risky>tool xác nhận đúng |
 | P2.1 — Routing functions | P2 | ✅ | 4 hàm routing đúng decision table, `test_routing.py` 13/13 pass |
 | P1.2 — Tool loop | P1 | ✅ | tool/evaluate/retry/dead_letter done, trace S07 (max_attempts=1) xác nhận dead_letter ngay không loop vô hạn |
+<<<<<<< HEAD
 | P1.3 — LLM answer + finalize | P1 | ✅ | answer_node grounded LLM, finalize_node xong |
 | P2.2 — Graph wiring | P2 | ✅ | `build_graph()` đủ 11 node + 8 fixed edge + 4 conditional edge đúng |
 | P2.3 — Persistence | P2 | ✅ | `build_checkpointer("sqlite")` dùng `SqliteSaver(conn=...)` + WAL đúng pattern |
@@ -178,3 +179,12 @@ Compile với `checkpointer` được **truyền vào** `build_graph()` — khô
 | **Merge P1 + P2 → main** | Chung | ✅ | PR #1 (`Son` → `main`) merged trên GitHub. `main` có đủ 11 node + routing + graph + persistence + report |
 | **Fix: LLM quota/model blocker** | Chung | ✅ | Gemini free-tier hết quota (20 req/ngày) khi test nhiều lần. Đã thêm `GROQ_API_KEY` (ưu tiên cao nhất, dùng `openai/gpt-oss-20b`) và `OPENROUTER_API_KEY` làm phương án dự phòng vào `llm.py`. Trong lúc test phát hiện bug thật: docstring của `ClassificationResult` chứa chữ "classify_node", khiến model `gpt-oss` nhầm lẫn gọi sai tool name → sửa docstring, fix xong 6/6 case. Cũng sửa `tests/test_graph_smoke.py` skip-condition (chỉ check 3 key cũ, không biết `GROQ_API_KEY`/`OPENROUTER_API_KEY` mới) và thêm `tests/conftest.py` để `load_dotenv()` chạy trước khi pytest collect test. **`test_graph_smoke.py`: 6/6 pass với Groq (~22s, nhanh hơn Gemini ~7.5 phút rất nhiều)**. Đang ở branch `fix/llm-blocker-and-tracker`, chưa merge |
 | Cuối — Tích hợp & Report | Chung | ☐ | Sau khi merge `fix/llm-blocker-and-tracker` → `main`: chạy `make run-scenarios` → `outputs/metrics.json` → viết `reports/lab_report.md` |
+=======
+| P1.3 — LLM answer + finalize | P1 | ✅ | answer_node grounded LLM (Gemini gemini-3.6-flash), finalize_node xong |
+| P2.2 — Graph wiring | P2 | ✅ | `build_graph()` đủ 11 node + 8 fixed edge + 4 conditional edge đúng. Live smoke test: 4/6 pass bằng Gemini trước khi hết quota free-tier (429) — 2 case fail là do quota, không phải bug wiring |
+| P2.3 — Persistence | P2 | ✅ | `build_checkpointer("sqlite")` dùng `SqliteSaver(conn=...)` + WAL đúng pattern |
+| P2.4 — Metrics & Report | P2 | ✅ | `render_report()` sinh đủ metrics summary, scenario table, architecture, failure analysis |
+| **Merge P1 + P2 → main** | Chung | ✅ | PR #1 (`Son` → `main`) merged trên GitHub. `main` hiện có đủ 11 node + routing + graph + persistence + report. `test_state.py`/`test_metrics.py`/`test_routing.py`: 19/19 pass trên main sau merge |
+| **BLOCKER — LLM quota/model** | Chung | 🔧 đang fix trên `fix/llm-blocker-and-tracker` | Gemini free-tier hết quota (20 req/ngày) khi test nhiều. Đã thêm `OPENROUTER_API_KEY` vào `llm.py` làm phương án dự phòng (merged vào main, commit `f5400d2`), nhưng free model trên OpenRouter chưa ổn định: `minimax-m2.7:free` trả prose không phải JSON cho structured output, `z-ai/glm-5.2:free` bị rate-limit shared pool, `google/gemma-4-31b-it:free` cũng bị rate-limit. Đang tìm free model khác hoặc đợi Gemini quota reset (~24h từ lần gọi đầu) |
+| Cuối — Tích hợp & Report | Chung | ☐ | Chờ: giải quyết blocker LLM, chạy `test_graph_smoke.py` sạch 6/6, sau đó `make run-scenarios` → `outputs/metrics.json` → viết `reports/lab_report.md` |
+>>>>>>> origin/main
