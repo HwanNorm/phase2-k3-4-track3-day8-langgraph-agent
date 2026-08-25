@@ -40,4 +40,57 @@ def build_graph(checkpointer: Any | None = None):
 
     Reference: https://langchain-ai.github.io/langgraph/how-tos/create-react-agent/
     """
-    raise NotImplementedError("TODO(student): build and compile the LangGraph StateGraph")
+    from langgraph.graph import StateGraph, START, END
+
+    from .nodes import (
+        intake_node,
+        classify_node,
+        tool_node,
+        evaluate_node,
+        answer_node,
+        ask_clarification_node,
+        risky_action_node,
+        approval_node,
+        retry_or_fallback_node,
+        dead_letter_node,
+        finalize_node,
+    )
+    from .routing import (
+        route_after_classify,
+        route_after_evaluate,
+        route_after_retry,
+        route_after_approval,
+    )
+
+    builder = StateGraph(AgentState)
+
+    # Register all 11 nodes
+    builder.add_node("intake", intake_node)
+    builder.add_node("classify", classify_node)
+    builder.add_node("tool", tool_node)
+    builder.add_node("evaluate", evaluate_node)
+    builder.add_node("answer", answer_node)
+    builder.add_node("clarify", ask_clarification_node)
+    builder.add_node("risky_action", risky_action_node)
+    builder.add_node("approval", approval_node)
+    builder.add_node("retry", retry_or_fallback_node)
+    builder.add_node("dead_letter", dead_letter_node)
+    builder.add_node("finalize", finalize_node)
+
+    # Fixed edges
+    builder.add_edge(START, "intake")
+    builder.add_edge("intake", "classify")
+    builder.add_edge("tool", "evaluate")
+    builder.add_edge("risky_action", "approval")
+    builder.add_edge("answer", "finalize")
+    builder.add_edge("clarify", "finalize")
+    builder.add_edge("dead_letter", "finalize")
+    builder.add_edge("finalize", END)
+
+    # Conditional edges
+    builder.add_conditional_edges("classify", route_after_classify)
+    builder.add_conditional_edges("evaluate", route_after_evaluate)
+    builder.add_conditional_edges("retry", route_after_retry)
+    builder.add_conditional_edges("approval", route_after_approval)
+
+    return builder.compile(checkpointer=checkpointer)
