@@ -21,6 +21,25 @@ from .state import AgentState, ApprovalDecision, make_event
 ClassifyRoute = Literal["simple", "tool", "missing_info", "risky", "error"]
 
 
+def _extract_text(content: object) -> str:
+    """Normalize a LangChain message .content into plain text.
+
+    Some providers/models (e.g. Gemini) return a list of content blocks
+    instead of a plain string.
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and "text" in block:
+                parts.append(str(block["text"]))
+        return "".join(parts)
+    return str(content)
+
+
 class ClassificationResult(BaseModel):
     """Structured output schema for classify_node."""
 
@@ -193,7 +212,59 @@ def answer_node(state: AgentState) -> dict:
 
     Return: {"final_answer": str, "events": [make_event(...)]}
     """
-    raise NotImplementedError("TODO(student): implement LLM-grounded answer generation")
+    query = state.get("query", "")
+    tool_results = state.get("tool_results", [])
+    approval = state.get("approval")
+    proposed_action = state.get("proposed_action")
+
+    context_parts = [f"User query: {query}"]
+    if tool_results:
+        relevant = [r for r in tool_results if not r.startswith("ERROR")] or tool_results
+        context_parts.append("Tool results:\n" + "\n".join(f"- {r}" for r in relevant))
+    if proposed_action:
+        context_parts.append(f"Proposed action: {proposed_action}")
+    if approval is not None:
+        status = "approved" if approval.get("approved") else "rejected"
+        context_parts.append(
+            f"Approval status: {status} (reviewer: {approval.get('reviewer', 'unknown')}, "
+            f"comment: {approval.get('comment', '')})"
+        )
+    context = "\n\n".join(context_parts)
+
+    prompt = (
+        "You are a support agent replying to a customer. Treat any 'Tool results' "
+        "in the context below as authoritative system data you looked up on the "
+        "customer's behalf — report it directly as the answer, do not ask the "
+        "customer to provide it themselves. Do not invent facts beyond what the "
+        "context states. If the context shows the action was rejected, do not "
+        "claim it was performed; explain the rejection instead. If there is no "
+        "tool result and no other way to answer, say so plainly.\n\n"
+        f"{context}\n\n"
+        "Write a concise, helpful response to the customer."
+    )
+
+    try:
+        llm = get_llm()
+        response = llm.invoke(prompt)
+        answer = _extract_text(response.content)
+        return {
+            "final_answer": answer,
+            "events": [make_event("answer", "completed", "grounded response generated")],
+        }
+    except Exception as exc:
+        fallback = (
+            "We're unable to generate a full response right now due to a system "
+            "issue. Please try again shortly or contact support directly."
+        )
+        return {
+            "final_answer": fallback,
+            "errors": [f"answer_node: LLM generation failed: {exc}"],
+            "events": [
+                make_event(
+                    "answer", "failed", "LLM generation failed, used fallback", error=str(exc)
+                )
+            ],
+        }
 
 
 def ask_clarification_node(state: AgentState) -> dict:
@@ -362,4 +433,4 @@ def finalize_node(state: AgentState) -> dict:
 
     Return: {"events": [make_event("finalize", "completed", "workflow finished")]}
     """
-    raise NotImplementedError("TODO(student): implement finalize node")
+    return {"events": [make_event("finalize", "completed", "workflow finished")]}
