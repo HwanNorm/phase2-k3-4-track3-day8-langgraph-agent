@@ -3,7 +3,7 @@
 These tests verify end-to-end graph execution. They will fail with NotImplementedError
 until you implement nodes, routing, and graph wiring.
 
-Note: These tests require a configured LLM (OPENAI_API_KEY or ANTHROPIC_API_KEY)
+Note: These tests require a configured LLM (any provider supported by llm.get_llm())
 because classify_node and answer_node use real LLM calls.
 """
 
@@ -12,14 +12,22 @@ import os
 
 import pytest
 
+_PROVIDER_KEYS = (
+    "GROQ_API_KEY",
+    "OPENROUTER_API_KEY",
+    "GEMINI_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+)
+
 pytestmark = [
     pytest.mark.skipif(
         importlib.util.find_spec("langgraph") is None,
         reason="langgraph not installed",
     ),
     pytest.mark.skipif(
-        not os.getenv("GEMINI_API_KEY") and not os.getenv("OPENAI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"),
-        reason="No LLM API key configured (set GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY)",
+        not any(os.getenv(k) for k in _PROVIDER_KEYS),
+        reason=f"No LLM API key configured (set one of: {', '.join(_PROVIDER_KEYS)})",
     ),
 ]
 

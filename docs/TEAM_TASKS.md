@@ -169,10 +169,12 @@ Compile với `checkpointer` được **truyền vào** `build_graph()` — khô
 |---|---|---|---|
 | 0 — State schema | Chung | ✅ | `state.py` đã thêm 4 field; `test_state.py` pass. `.venv` đã tạo và cài `pip install -e ".[dev]"` |
 | P1.1 — Nhánh không loop | P1 | ✅ | classify/clarify/risky_action/approval done trên `CP1/Nam`, verify bằng câu tự nghĩ (không phải scenario mẫu), priority risky>tool xác nhận đúng |
-| P2.1 — Routing functions | P2 | ☐ | |
+| P2.1 — Routing functions | P2 | ✅ | 4 hàm routing đúng decision table, `test_routing.py` 13/13 pass |
 | P1.2 — Tool loop | P1 | ✅ | tool/evaluate/retry/dead_letter done, trace S07 (max_attempts=1) xác nhận dead_letter ngay không loop vô hạn |
-| P1.3 — LLM answer + finalize | P1 | ✅ | answer_node grounded LLM (Gemini gemini-3.6-flash), finalize_node xong. **Merged CP1/Nam → main** — đủ 11 node, P2 có thể bắt đầu wiring graph |
-| P2.2 — Graph wiring | P2 | ☐ | |
-| P2.3 — Persistence | P2 | ☐ | |
-| P2.4 — Metrics & Report | P2 | ☐ | |
-| Cuối — Tích hợp & Report | Chung | ☐ | |
+| P1.3 — LLM answer + finalize | P1 | ✅ | answer_node grounded LLM, finalize_node xong |
+| P2.2 — Graph wiring | P2 | ✅ | `build_graph()` đủ 11 node + 8 fixed edge + 4 conditional edge đúng |
+| P2.3 — Persistence | P2 | ✅ | `build_checkpointer("sqlite")` dùng `SqliteSaver(conn=...)` + WAL đúng pattern |
+| P2.4 — Metrics & Report | P2 | ✅ | `render_report()` sinh đủ metrics summary, scenario table, architecture, failure analysis |
+| **Merge P1 + P2 → main** | Chung | ✅ | PR #1 (`Son` → `main`) merged trên GitHub. `main` có đủ 11 node + routing + graph + persistence + report |
+| **Fix: LLM quota/model blocker** | Chung | ✅ | Gemini free-tier hết quota (20 req/ngày) khi test nhiều lần. Đã thêm `GROQ_API_KEY` (ưu tiên cao nhất, dùng `openai/gpt-oss-20b`) và `OPENROUTER_API_KEY` làm phương án dự phòng vào `llm.py`. Trong lúc test phát hiện bug thật: docstring của `ClassificationResult` chứa chữ "classify_node", khiến model `gpt-oss` nhầm lẫn gọi sai tool name → sửa docstring, fix xong 6/6 case. Cũng sửa `tests/test_graph_smoke.py` skip-condition (chỉ check 3 key cũ, không biết `GROQ_API_KEY`/`OPENROUTER_API_KEY` mới) và thêm `tests/conftest.py` để `load_dotenv()` chạy trước khi pytest collect test. **`test_graph_smoke.py`: 6/6 pass với Groq (~22s, nhanh hơn Gemini ~7.5 phút rất nhiều)**. Đang ở branch `fix/llm-blocker-and-tracker`, chưa merge |
+| Cuối — Tích hợp & Report | Chung | ☐ | Sau khi merge `fix/llm-blocker-and-tracker` → `main`: chạy `make run-scenarios` → `outputs/metrics.json` → viết `reports/lab_report.md` |

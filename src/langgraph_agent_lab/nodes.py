@@ -41,7 +41,7 @@ def _extract_text(content: object) -> str:
 
 
 class ClassificationResult(BaseModel):
-    """Structured output schema for classify_node."""
+    """Support-ticket intent classification result."""
 
     route: ClassifyRoute = Field(description="One of: simple, tool, missing_info, risky, error")
     risk_level: Literal["low", "high"] = Field(
