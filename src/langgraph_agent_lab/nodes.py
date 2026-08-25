@@ -11,7 +11,24 @@ LLM REQUIREMENT:
 
 from __future__ import annotations
 
-from .state import AgentState, make_event
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+from .llm import get_llm
+from .state import AgentState, ApprovalDecision, make_event
+
+ClassifyRoute = Literal["simple", "tool", "missing_info", "risky", "error"]
+
+
+class ClassificationResult(BaseModel):
+    """Structured output schema for classify_node."""
+
+    route: ClassifyRoute = Field(description="One of: simple, tool, missing_info, risky, error")
+    risk_level: Literal["low", "high"] = Field(
+        description="'high' for risky route, 'low' otherwise"
+    )
+    reason: str = Field(description="One short sentence explaining the classification")
 
 
 # ─── EXAMPLE: working node (provided for reference) ──────────────────
@@ -44,7 +61,60 @@ def classify_node(state: AgentState) -> dict:
 
     Return: {"route": str, "risk_level": str, "events": [make_event(...)]}
     """
-    raise NotImplementedError("TODO(student): implement LLM-based classification")
+    query = state.get("query", "")
+
+    prompt = (
+        "You are the intent classifier for a support-ticket agent. "
+        "Classify the user's query into exactly one route.\n\n"
+        "Routes (apply in this priority order — if multiple signals are present, "
+        "the highest-priority route wins):\n"
+        "1. risky - the request asks for an action with a side effect: refunds, "
+        "deletions, sending emails, cancellations, account changes. Even if the "
+        "query also asks to look something up, if it also asks for a side-effect "
+        "action, classify as risky.\n"
+        "2. tool - the request is an information lookup that needs a tool call: "
+        "order status, tracking, search, account lookup, with no side-effect action.\n"
+        "3. missing_info - the request is vague or lacks the context needed to act "
+        "(e.g. 'fix it', 'my thing is broken' with no specifics).\n"
+        "4. error - the request describes a system failure: timeout, crash, "
+        "service unavailable, cannot recover.\n"
+        "5. simple - a general question answerable directly, with no tool call and "
+        "no side effect.\n\n"
+        "Set risk_level to 'high' only when route is risky, otherwise 'low'.\n\n"
+        f"User query: {query}"
+    )
+
+    try:
+        llm = get_llm()
+        structured_llm = llm.with_structured_output(ClassificationResult)
+        result: ClassificationResult = structured_llm.invoke(prompt)
+        return {
+            "route": result.route,
+            "risk_level": result.risk_level,
+            "events": [
+                make_event(
+                    "classify",
+                    "completed",
+                    f"classified as {result.route}",
+                    risk_level=result.risk_level,
+                    reason=result.reason,
+                )
+            ],
+        }
+    except Exception as exc:
+        return {
+            "route": "error",
+            "risk_level": "unknown",
+            "errors": [f"classify_node: LLM classification failed: {exc}"],
+            "events": [
+                make_event(
+                    "classify",
+                    "failed",
+                    "LLM classification failed, falling back to error route",
+                    error=str(exc),
+                )
+            ],
+        }
 
 
 def tool_node(state: AgentState) -> dict:
@@ -107,7 +177,31 @@ def ask_clarification_node(state: AgentState) -> dict:
 
     Return: {"pending_question": str, "final_answer": str, "events": [make_event(...)]}
     """
-    raise NotImplementedError("TODO(student): implement clarification request")
+    approval = state.get("approval")
+    query = state.get("query", "")
+
+    if approval and not approval.get("approved", True):
+        proposed_action = state.get("proposed_action", "the requested action")
+        comment = approval.get("comment") or "no reason given"
+        question = (
+            f"Your request ('{proposed_action}') was not approved "
+            f"(reviewer note: {comment}). Could you confirm the details or provide "
+            "an alternative so we can proceed?"
+        )
+        reason = "approval_rejected"
+    else:
+        question = (
+            f"Could you provide more details about your request ('{query}')? "
+            "For example, which account, order, or item is affected, and what "
+            "outcome you're expecting."
+        )
+        reason = "missing_info"
+
+    return {
+        "pending_question": question,
+        "final_answer": question,
+        "events": [make_event("clarify", "completed", "clarification requested", reason=reason)],
+    }
 
 
 def risky_action_node(state: AgentState) -> dict:
@@ -119,7 +213,22 @@ def risky_action_node(state: AgentState) -> dict:
 
     Return: {"proposed_action": str, "events": [make_event(...)]}
     """
-    raise NotImplementedError("TODO(student): implement risky action preparation")
+    query = state.get("query", "")
+    risk_level = state.get("risk_level", "high")
+
+    proposed_action = f"Perform the following action on behalf of the user: {query}"
+
+    return {
+        "proposed_action": proposed_action,
+        "events": [
+            make_event(
+                "risky_action",
+                "completed",
+                "action proposed, awaiting approval",
+                risk_level=risk_level,
+            )
+        ],
+    }
 
 
 def approval_node(state: AgentState) -> dict:
@@ -128,9 +237,28 @@ def approval_node(state: AgentState) -> dict:
     Default behavior: mock approval (approved=True) so tests and CI run offline.
     Extension: if env LANGGRAPH_INTERRUPT=true, use langgraph.types.interrupt() for real HITL.
 
-    Return: {"approval": {"approved": bool, "reviewer": str, "comment": str}, "events": [make_event(...)]}
+    Return: {"approval": {"approved": bool, "reviewer": str, "comment": str},
+             "events": [make_event(...)]}
     """
-    raise NotImplementedError("TODO(student): implement approval with mock default")
+    proposed_action = state.get("proposed_action", "")
+
+    decision = ApprovalDecision(
+        approved=True,
+        reviewer="mock-reviewer",
+        comment=f"auto-approved: {proposed_action}" if proposed_action else "auto-approved",
+    )
+
+    return {
+        "approval": decision.model_dump(),
+        "events": [
+            make_event(
+                "approval",
+                "completed",
+                "approval decision recorded",
+                approved=decision.approved,
+            )
+        ],
+    }
 
 
 def retry_or_fallback_node(state: AgentState) -> dict:
