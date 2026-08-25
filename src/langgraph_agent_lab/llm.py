@@ -22,12 +22,25 @@ def get_llm(model: str | None = None, temperature: float = 0.0):
     """Create an LLM client from environment configuration.
 
     Checks for API keys in this order:
-    1. GEMINI_API_KEY → ChatGoogleGenerativeAI
-    2. OPENAI_API_KEY → ChatOpenAI
-    3. ANTHROPIC_API_KEY → ChatAnthropic
+    1. OPENROUTER_API_KEY → ChatOpenAI (OpenAI-compatible, routed via OpenRouter)
+    2. GEMINI_API_KEY → ChatGoogleGenerativeAI
+    3. OPENAI_API_KEY → ChatOpenAI
+    4. ANTHROPIC_API_KEY → ChatAnthropic
 
     Override model with the `model` parameter or LLM_MODEL env var.
     """
+    if os.getenv("OPENROUTER_API_KEY"):
+        try:
+            from langchain_openai import ChatOpenAI
+        except ImportError as exc:
+            raise RuntimeError("Install: pip install langchain-openai") from exc
+        return ChatOpenAI(
+            model=model or os.getenv("LLM_MODEL", "google/gemini-2.0-flash-exp:free"),
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+            base_url="https://openrouter.ai/api/v1",
+            temperature=temperature,
+        )
+
     if os.getenv("GEMINI_API_KEY"):
         try:
             from langchain_google_genai import ChatGoogleGenerativeAI
@@ -60,6 +73,7 @@ def get_llm(model: str | None = None, temperature: float = 0.0):
         )
 
     raise RuntimeError(
-        "No LLM API key found. Set GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY in .env\n"
+        "No LLM API key found. Set OPENROUTER_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, "
+        "or ANTHROPIC_API_KEY in .env\n"
         "See .env.example for configuration."
     )
