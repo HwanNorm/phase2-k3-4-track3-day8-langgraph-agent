@@ -167,7 +167,7 @@ Compile với `checkpointer` được **truyền vào** `build_graph()` — khô
 
 | Checkpoint | Người phụ trách | Trạng thái | Ghi chú |
 |---|---|---|---|
-| 0 — State schema | Chung | ☐ | |
+| 0 — State schema | Chung | ✅ | `state.py` đã thêm 4 field; `test_state.py` pass. `.venv` đã tạo và cài `pip install -e ".[dev]"` |
 | P1.1 — Nhánh không loop | P1 | ☐ | |
 | P2.1 — Routing functions | P2 | ☐ | |
 | P1.2 — Tool loop | P1 | ☐ | |
