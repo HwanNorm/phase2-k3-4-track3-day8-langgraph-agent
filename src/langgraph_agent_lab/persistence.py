@@ -8,8 +8,8 @@ from typing import Any
 def build_checkpointer(kind: str = "memory", database_url: str | None = None) -> Any | None:
     """Return a LangGraph checkpointer.
 
-    TODO(student): implement SQLite support for the persistence extension track.
-    The starter provides MemorySaver only — SQLite/Postgres are extension tasks.
+    Supports in-memory and SQLite checkpointers. Postgres remains intentionally
+    unsupported because its optional driver is not part of the core lab.
 
     For SQLite:
     - pip install langgraph-checkpoint-sqlite
@@ -25,13 +25,11 @@ def build_checkpointer(kind: str = "memory", database_url: str | None = None) ->
     if kind == "sqlite":
         import sqlite3
 
-        from langgraph.checkpoint.sqlite import SqliteSaver
+        from langgraph.checkpoint.sqlite import SqliteSaver  # type: ignore[import-not-found]
 
         conn = sqlite3.connect(database_url or "checkpoints.db", check_same_thread=False)
         conn.execute("PRAGMA journal_mode=WAL")
         return SqliteSaver(conn)
     if kind == "postgres":
-        raise NotImplementedError(
-            "TODO(student): implement Postgres checkpointer (optional extension)"
-        )
+        raise NotImplementedError("Postgres checkpointer is not enabled for this lab")
     raise ValueError(f"Unknown checkpointer kind: {kind}")

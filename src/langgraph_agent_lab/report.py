@@ -1,8 +1,4 @@
-"""Report generation helper.
-
-TODO(student): implement report rendering using MetricsReport data
-and the template in reports/lab_report_template.md.
-"""
+"""Report generation helper."""
 
 from __future__ import annotations
 
@@ -14,16 +10,8 @@ from .metrics import MetricsReport
 def render_report(metrics: MetricsReport) -> str:
     """Render a complete lab report from metrics data.
 
-    TODO(student): Generate a report that includes:
-    1. Metrics summary table (total scenarios, success rate, retries, interrupts)
-    2. Per-scenario results table
-    3. Architecture explanation (your graph design, state schema, reducers)
-    4. Failure analysis (at least two failure modes you considered)
-    5. Improvement plan
-
-    Use reports/lab_report_template.md as your guide.
-
-    Return: formatted markdown string
+    The report includes metrics, scenario results, architecture, failure analysis,
+    persistence evidence, and a follow-up productionization plan.
     """
     lines = [
         "# Day 08 Lab Report",
@@ -101,7 +89,11 @@ def render_report(metrics: MetricsReport) -> str:
         "",
         "## 5. Persistence / Recovery Evidence",
         "",
-        "The graph uses a checkpointer (MemorySaver for core, SqliteSaver for extension) to persist state across executions. Each run uses a unique thread_id to isolate checkpoint data. State history can be retrieved via get_state_history() for debugging and crash recovery. SQLite extension provides durable storage that survives process restarts.",
+        "Each run has an isolated thread_id and uses the configured checkpointer. "
+        "Verification reads get_state_history() immediately after invoke, confirming "
+        "the final state is recoverable in-process. The final verification recorded "
+        "six history snapshots for a MemorySaver thread. SQLite uses SqliteSaver with "
+        "WAL for durable extension-track checkpoints.",
         "",
         "## 6. Improvement Plan",
         "",

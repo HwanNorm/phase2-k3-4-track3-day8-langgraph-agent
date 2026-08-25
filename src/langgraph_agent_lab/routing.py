@@ -22,7 +22,7 @@ def route_after_classify(state: AgentState) -> str:
 
     Hint: use a dict mapping for clean implementation.
     """
-    route = state.get("route")
+    route = state.get("route") or ""
     route_mapping = {
         "simple": "answer",
         "tool": "tool",

@@ -61,7 +61,7 @@ def intake_node(state: AgentState) -> dict:
     }
 
 
-# ─── TODO(student): implement ALL nodes below ────────────────────────
+# ─── Graph nodes ─────────────────────────────────────────────────────
 
 
 def classify_node(state: AgentState) -> dict:
@@ -98,7 +98,8 @@ def classify_node(state: AgentState) -> dict:
         "4. error - the request describes a system failure: timeout, crash, "
         "service unavailable, cannot recover.\n"
         "5. simple - a general question answerable directly, with no tool call and "
-        "no side effect.\n\n"
+        "no side effect. Requests for instructions, such as 'How do I reset my "
+        "password?', are simple; they do not ask the agent to reset it.\n\n"
         "Set risk_level to 'high' only when route is risky, otherwise 'low'.\n\n"
         f"User query: {query}"
     )
