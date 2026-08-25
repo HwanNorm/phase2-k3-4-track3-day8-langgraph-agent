@@ -168,10 +168,10 @@ Compile với `checkpointer` được **truyền vào** `build_graph()` — khô
 | Checkpoint | Người phụ trách | Trạng thái | Ghi chú |
 |---|---|---|---|
 | 0 — State schema | Chung | ✅ | `state.py` đã thêm 4 field; `test_state.py` pass. `.venv` đã tạo và cài `pip install -e ".[dev]"` |
-| P1.1 — Nhánh không loop | P1 | ☐ | |
+| P1.1 — Nhánh không loop | P1 | ✅ | classify/clarify/risky_action/approval done trên `CP1/Nam`, verify bằng câu tự nghĩ (không phải scenario mẫu), priority risky>tool xác nhận đúng |
 | P2.1 — Routing functions | P2 | ☐ | |
-| P1.2 — Tool loop | P1 | ☐ | |
-| P1.3 — LLM answer + finalize | P1 | ☐ | |
+| P1.2 — Tool loop | P1 | ✅ | tool/evaluate/retry/dead_letter done, trace S07 (max_attempts=1) xác nhận dead_letter ngay không loop vô hạn |
+| P1.3 — LLM answer + finalize | P1 | ✅ | answer_node grounded LLM (Gemini gemini-3.6-flash), finalize_node xong. **Merged CP1/Nam → main** — đủ 11 node, P2 có thể bắt đầu wiring graph |
 | P2.2 — Graph wiring | P2 | ☐ | |
 | P2.3 — Persistence | P2 | ☐ | |
 | P2.4 — Metrics & Report | P2 | ☐ | |
