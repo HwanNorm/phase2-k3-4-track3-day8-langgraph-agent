@@ -130,7 +130,25 @@ def tool_node(state: AgentState) -> dict:
 
     Return: {"tool_results": [result_string], "events": [make_event(...)]}
     """
-    raise NotImplementedError("TODO(student): implement mock tool with error simulation")
+    route = state.get("route", "")
+    attempt = state.get("attempt", 0)
+    query = state.get("query", "")
+
+    if route == "error" and attempt < 2:
+        result = f"ERROR: tool call failed for query {query!r} (attempt {attempt})"
+        return {
+            "tool_results": [result],
+            "errors": [result],
+            "events": [
+                make_event("tool", "failed", "tool call returned an error", attempt=attempt)
+            ],
+        }
+
+    result = f"OK: mock tool result for query {query!r}"
+    return {
+        "tool_results": [result],
+        "events": [make_event("tool", "completed", "tool call succeeded", attempt=attempt)],
+    }
 
 
 def evaluate_node(state: AgentState) -> dict:
@@ -150,7 +168,17 @@ def evaluate_node(state: AgentState) -> dict:
 
     Return: {"evaluation_result": str, "events": [make_event(...)]}
     """
-    raise NotImplementedError("TODO(student): implement tool result evaluation")
+    tool_results = state.get("tool_results", [])
+    latest = tool_results[-1] if tool_results else ""
+
+    verdict = "needs_retry" if "ERROR" in latest else "success"
+
+    return {
+        "evaluation_result": verdict,
+        "events": [
+            make_event("evaluate", "completed", f"verdict={verdict}", latest_result=latest)
+        ],
+    }
 
 
 def answer_node(state: AgentState) -> dict:
@@ -273,7 +301,26 @@ def retry_or_fallback_node(state: AgentState) -> dict:
 
     Return: {"attempt": int, "errors": [str], "events": [make_event(...)]}
     """
-    raise NotImplementedError("TODO(student): implement retry with attempt tracking")
+    attempt = state.get("attempt", 0)
+    max_attempts = state.get("max_attempts", 3)
+    new_attempt = attempt + 1
+
+    tool_results = state.get("tool_results", [])
+    latest_failure = tool_results[-1] if tool_results else "no prior tool result"
+
+    return {
+        "attempt": new_attempt,
+        "errors": [f"retry {new_attempt}/{max_attempts}: {latest_failure}"],
+        "events": [
+            make_event(
+                "retry",
+                "recorded",
+                f"retry attempt {new_attempt} of {max_attempts}",
+                attempt=new_attempt,
+                max_attempts=max_attempts,
+            )
+        ],
+    }
 
 
 def dead_letter_node(state: AgentState) -> dict:
@@ -284,7 +331,30 @@ def dead_letter_node(state: AgentState) -> dict:
 
     Return: {"final_answer": str, "events": [make_event(...)]}
     """
-    raise NotImplementedError("TODO(student): implement dead letter handling")
+    attempt = state.get("attempt", 0)
+    max_attempts = state.get("max_attempts", 3)
+    errors = state.get("errors", [])
+    tool_results = state.get("tool_results", [])
+    last_error = errors[-1] if errors else (tool_results[-1] if tool_results else "unknown error")
+
+    message = (
+        f"We could not complete this request after {attempt} attempt(s) "
+        f"(limit: {max_attempts}). Last failure: {last_error}. "
+        "This has been escalated to a human agent."
+    )
+
+    return {
+        "final_answer": message,
+        "events": [
+            make_event(
+                "dead_letter",
+                "exhausted",
+                "retry limit exhausted, escalating",
+                attempt=attempt,
+                max_attempts=max_attempts,
+            )
+        ],
+    }
 
 
 def finalize_node(state: AgentState) -> dict:
